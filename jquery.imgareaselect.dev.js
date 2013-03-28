@@ -186,7 +186,7 @@ $.imgAreaSelect = function (img, options) {
         $($outer[3]).css({ left: left + selection.x1, top: top + selection.y2,
             width: w, height: imgHeight - selection.y2 });
 
-        $closeBtn.css({left: w + 5, top: -10});
+        $closeBtn.css({left: left + selection.x2 + 4, top: top + selection.y1 - 20});
 
         w -= $handles.outerWidth();
         h -= $handles.outerHeight();
@@ -614,8 +614,7 @@ $.imgAreaSelect = function (img, options) {
 
         $closeBtn.html("<div class='closeBtnInner'>×</div>");
         $closeBtn.click(function(event){cancelSelection(true); event.stopPropagation(); return false; });
-
-        $box.append($closeBtn);
+        $('body').append($closeBtn);
 
         $box.append($area.add($border).add($areaOpera).add($handles));
 
