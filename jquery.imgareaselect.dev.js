@@ -78,6 +78,9 @@ $.imgAreaSelect = function (img, options) {
         /* Parent element offset (as returned by .offset()) */
         parOfs = { left: 0, top: 0 },
 
+        /* keeps track of the most recently edited selection, for proper event binding/unbinding. */
+        most_recent_selection, 
+
         /*
          * jQuery object representing the parent element that the plugin
          * elements are appended to. 
@@ -224,8 +227,6 @@ $.imgAreaSelect = function (img, options) {
         var sx = noScale || scaleX || 1; //TODO: the options version should override this, but it doesnt'. Fix.
         var sy = noScale || scaleY || 1;
 
-        //console.log(1, this.selection);
-
         this.selection = {
             x1: round(x1 / sx || 0),
             y1: round(y1 / sy || 0),
@@ -235,7 +236,6 @@ $.imgAreaSelect = function (img, options) {
 
         this.selection.width = this.selection.x2 - this.selection.x1;
         this.selection.height = this.selection.y2 - this.selection.y1;
-        //console.log(2, this.selection);
     }
 
 
@@ -249,7 +249,6 @@ $.imgAreaSelect = function (img, options) {
     Selection.prototype.update = function(resetKeyPress) {
         /* If plugin elements are hidden, do nothing */
         if (!this.shown) return;
-
         /*
          * Set the position and size of the container box and the selection area
          * inside it
@@ -325,9 +324,9 @@ $.imgAreaSelect = function (img, options) {
          * borderOpacity, borderColor1, and borderColor2 options (which are now
          * deprecated). Borders created with GIF background images are fine.
          */ 
-        if ($.browser.msie && $border.outerWidth() - $border.innerWidth() == 2) {
-            $border.css('margin', 0);
-            setTimeout(function () { $border.css('margin', 'auto'); }, 0);
+        if ($.browser.msie && this.$border.outerWidth() - this.$border.innerWidth() == 2) {
+            this.$border.css('margin', 0);
+            setTimeout(function () { this.$border.css('margin', 'auto'); }, 0);
         }
     }
 
@@ -395,7 +394,6 @@ $.imgAreaSelect = function (img, options) {
             else if (x >= this.selection.width - options.resizeMargin)
                 this.resize += 'e';
         }
-        //console.log(x, y, this.selection.width, this.selection.height, this.resize);
 
         this.$box.css('cursor', this.resize ? this.resize + '-resize' :
             options.movable ? 'move' : '');
@@ -414,9 +412,9 @@ $.imgAreaSelect = function (img, options) {
     Selection.prototype.areaMouseDown = function(event) {
         if (event.which != 1) return false;
 
-        console.log("areaMouseDown", this);
-
         adjust();
+
+        most_recent_selection = this;
 
         if (this.resize) {
             /* Resize mode is in effect */
@@ -492,62 +490,165 @@ $.imgAreaSelect = function (img, options) {
             }
     }
 
+    /**
+     * Selection area mousedown event handler
+     * 
+     * @param otherSelection
+     *            Another selection object.
+     * @return "" whether the
+     *            '' otherwise.
+     */
     Selection.prototype.doesOverlap = function(otherSelection){
-        var x_axis_properly_oriented = this.x2 > this.x1;
-        var y_axis_properly_oriented = this.y2 > this.y1;
+        var left_infringement_amount = 0;
+        var right_infringement_amount = 0;
+        var top_infringement_amount = 0;
+        var bottom_infringement_amount = 0;
 
-        if(this.x1 > otherSelection.x1 && this.x1 < otherSelection.x2){
-            if(y_axis_properly_oriented ? (this.y2 > otherSelection.y1 && this.y1 < otherSelection.y2) : (this.y2 < otherSelection.y2 && this.y1 > otherSelection.y1)){
-                // set this.y2 to the top point if the current selection is oriented upright, (i.e. such that y2 > y1), bottom otherwise.
-                return true;
-            }
-        //if the non-moving point is "inside" the bounds of another selection on only the y axis
-        }else if(this.y1 > otherSelection.y1 && this.y1 < otherSelection.y2){
-            if(x_axis_properly_oriented ? (this.x2 > otherSelection.x1 && this.x1 < otherSelection.x1) : (this.x2 < otherSelection.x2 && this.x1 > otherSelection.x2 )){
-                // set this.x2 to the rightmost point if the current selection is oriented correctly, (i.e. such that x2 > x1), leftmost otherwise.
-                return true;
-            }
-        }else{
-            if (   //if the non-moving point is not within the bounds of another selection on any axis
-                ((y_axis_properly_oriented ? (this.y2 > otherSelection.y1 && this.y1 < otherSelection.y2) : (this.y2 < otherSelection.y2 && this.y1 > otherSelection.y1)) && 
-                 (x_axis_properly_oriented ? (this.x2 > otherSelection.x1 && this.x1 < otherSelection.x1) : (this.x2 < otherSelection.x2 && this.x1 > otherSelection.x2 ))) 
-                   //or if this selection wholly contains another selection.
-              || (this.x1 < otherSelection.x1 && this.y1 < otherSelection.y1 && this.x2 > otherSelection.x2 && this.y2 > otherSelection.y2) //if this is properly oriented
-              || (this.x2 < otherSelection.x1 && this.y2 < otherSelection.y1 && this.x1 > otherSelection.x2 && this.y1 > otherSelection.y2) //if this is improperly oriented
-            ){
-                return true;
-            }
+        if( (this.x2 > otherSelection.x1 && this.x1 < otherSelection.x2) && //infringe from the left
+                ((this.y1 > otherSelection.y1 && this.y1 < otherSelection.y2) ||
+                (this.y2 > otherSelection.y1 && this.y2 < otherSelection.y2)||
+                (this.y1 < otherSelection.y1 && this.y2 > otherSelection.y2))){ 
+           //console.log("infringes on the left");
+            left_infringement_amount = this.x2 - otherSelection.x1;
         }
-        return false;
+        if((this.x1 < otherSelection.x2 && this.x2 > otherSelection.x1) && //infringe from the right
+                ((this.y1 > otherSelection.y1 && this.y1 < otherSelection.y2) ||
+                (this.y2 > otherSelection.y1 && this.y2 < otherSelection.y2)||
+                (this.y1 < otherSelection.y1 && this.y2 > otherSelection.y2))){ 
+           //console.log("infringes on the right");
+            right_infringement_amount = otherSelection.x2 - this.x1;
+        }
+        if( (this.y2 > otherSelection.y1 && this.y1 < otherSelection.y2)  && //infringe from the top
+                ((this.x1 > otherSelection.x1 && this.x1 < otherSelection.x2) ||
+                (this.x2 > otherSelection.x1 && this.x2 < otherSelection.x2) ||
+                (this.x1 < otherSelection.x1 && this.x2 > otherSelection.x2))){
+           //console.log("infringes on the top");
+            top_infringement_amount = this.y2 - otherSelection.y1;
+        }
+        if((this.y1 < otherSelection.y2 && this.y2 > otherSelection.y1) && //infringe from the bottom
+                ((this.x1 > otherSelection.x1 && this.x1 < otherSelection.x2) ||
+                (this.x2 > otherSelection.x1 && this.x2 < otherSelection.x2)||
+                (this.x1 < otherSelection.x1 && this.x2 > otherSelection.x2))){
+           //console.log("infringes on the bottom");
+            bottom_infringement_amount = otherSelection.y2 - this.y1;
+        }
+        if (top_infringement_amount == 0 && bottom_infringement_amount == 0 && left_infringement_amount == 0 && right_infringement_amount == 0){
+            return false;
+        }else{
+            return {top: top_infringement_amount, 
+                    bottom: bottom_infringement_amount, 
+                    left: left_infringement_amount, 
+                    right: right_infringement_amount,
+                    otherSelection: otherSelection};
+        }
     }
 
-    Selection.prototype.fixOverlaps = function(otherSelection){
-        //if the non-moving point is "inside" the bounds of another selection on only the x axis
+    Selection.prototype.fixMoveOverlaps = function(infringements){
+        var otherSelection = infringements.otherSelection;
+        //assume proper orientation.
+        if (infringements){
+           //console.log(infringements);
+            if( min(infringements['left'], infringements['right']) < min(infringements['top'], infringements['bottom']) ){
+
+                if (((infringements['left'] < infringements['right'] || this.selection.width > (imgWidth - otherSelection.selection.x2 )) && this.selection.width <= otherSelection.selection.x1)){ // prefer to move the selection into the nearest legal space.                
+                   //console.log("go left", this.selection.width, otherSelection.selection.x1);
+                    var newX1 = this.x1 - infringements['left']
+                    var newX2 = this.x2 - infringements['left'] 
+                }else{
+                   //console.log("go right", this.selection.width, imgWidth - otherSelection.selection.x2);
+                    var newX1 = this.x1 + infringements['right'] 
+                    var newX2 = this.x2 + infringements['right'] 
+                }
+                
+                //only move the selection if it doesn't go outside the image!
+                if ( (newX1 == max(left, min(newX1, left + imgWidth))) && (newX2 == max(left, min(newX2, left + imgWidth))) ){
+                    this.x1 = newX1;
+                    this.x2 = newX2;
+                }else{
+                   //console.log("illegal x");
+                    this.x1 = (max(newX1, newX2) < left + imgWidth) ? otherSelection.x1: otherSelection.x2;
+                    this.x2 = abs(newX2 - newX1) - ((max(newX1, newX2) < left + imgWidth) && (newX2 < left + imgWidth)) ? otherSelection.x1 : otherSelection.x2;
+                }
+            }else{
+                var newY1 = this.y1 + (infringements['top'] < infringements['bottom'] ? -1 * infringements['top'] : infringements['bottom'] )
+                var newY2 = this.y2 + (infringements['top'] < infringements['bottom'] ? -1 * infringements['top'] : infringements['bottom'] )
+                
+                //only move the selection if it doesn't go outside the image!
+                if ( (newY1 < top + imgHeight) && (newY1 > top) && (newY2 < top + imgHeight) && (newY2 > top)){
+                    this.y1 = newY1;
+                    this.y2 = newY2;
+                }else{
+                   //console.log("illegal y");
+                    this.y1 = (max(newY1, newY2) < top + imgHeight) ? otherSelection.y2 : otherSelection.y1;
+                    this.y2 = abs(newY2 - newY1) + (max(newY1, newY2) < top + imgHeight)? otherSelection.y2 : otherSelection.y1;
+                }
+            }
+        }
+    }
+
+    Selection.prototype.fixResizeOverlaps = function(otherSelection){
+        //assume proper orientation.
+        if(this == otherSelection){
+           //console.log("comparing this selectiont to itself; that shouldn't happen");
+        }else{
+            if(!this.resize || this.resize.length == 2){
+                this.fixTwoAxisResizeOverlaps(otherSelection);
+            }else if(this.resize && this.resize.length == 1){
+                this.fixOneAxisResizeOverlaps(this.doesOverlap(otherSelection));
+            }else{
+               //console.log("no infringement", this.resize);
+            }
+            this.selection = { x1: selX(min(this.x1, this.x2)), x2: selX(max(this.x1, this.x2)),
+                y1: selY(min(this.y1, this.y2)), y2: selY(max(this.y1, this.y2)),
+                width: abs(this.x2 - this.x1), height: abs(this.y2 - this.y1) };
+        }
+    }
+
+    Selection.prototype.fixOneAxisResizeOverlaps = function(infringements){
+       //console.log("fix 1 axis");
+        var otherSelection = infringements.otherSelection;
+        if (infringements){
+            if(this.resize == "n"){
+                this.y1 = otherSelection.y2;
+            }else if(this.resize == "s"){
+                this.y2 = otherSelection.y1;
+            }else if(this.resize == "w"){
+                this.x1 = otherSelection.x2;
+            }else if(this.resize == "e"){
+                this.x2 = otherSelection.x1;
+            }
+        }
+    }
+
+    Selection.prototype.fixTwoAxisResizeOverlaps = function(otherSelection){
+        //TODO: refactor to actually change points based on doesOverlaps' return.
+
+        /* if the non-moving point is "inside" the bounds of another selection on only the x axis */
         var x_axis_properly_oriented = this.x2 > this.x1;
         var y_axis_properly_oriented = this.y2 > this.y1;
 
-        if(this.x1 > otherSelection.x1 && this.x1 < otherSelection.x2){
+        if((x_axis_properly_oriented ? this.x1 : this.x2) >= otherSelection.x1 && (x_axis_properly_oriented ? this.x1 : this.x2) < otherSelection.x2){
             if(y_axis_properly_oriented ? (this.y2 > otherSelection.y1 && this.y1 < otherSelection.y2) : (this.y2 < otherSelection.y2 && this.y1 > otherSelection.y1)){
-                console.log("disallowing overlap on y-axis");
+               //console.log("disallowing overlap on y-axis");
                 // set this.y2 to the top point if the current selection is oriented upright, (i.e. such that y2 > y1), bottom otherwise.
                 this.y2 = y_axis_properly_oriented ? otherSelection.y1 : otherSelection.y2;
             }
         //if the non-moving point is "inside" the bounds of another selection on only the y axis
-        }else if(this.y1 > otherSelection.y1 && this.y1 < otherSelection.y2){
-            if(x_axis_properly_oriented ? (this.x2 > otherSelection.x1 && this.x1 < otherSelection.x1) : (this.x2 < otherSelection.x2 && this.x1 > otherSelection.x2 )){
-                console.log("disallowing overlap on x-axis");
+        }else if((y_axis_properly_oriented ? this.y1 : this.y2) > otherSelection.y1 && (y_axis_properly_oriented ? this.y1 : this.y2) < otherSelection.y2){
+            if(x_axis_properly_oriented ? (this.x2 >= otherSelection.x1 && this.x1 <= otherSelection.x1) : (this.x2 < otherSelection.x2 && this.x1 > otherSelection.x2 )){
+               //console.log("disallowing overlap on x-axis");
                 // set this.x2 to the rightmost point if the current selection is oriented correctly, (i.e. such that x2 > x1), leftmost otherwise.
                 this.x2 = x_axis_properly_oriented ? otherSelection.x1 : otherSelection.x2;
             }
         }else{
             if (   //if the non-moving point is not within the bounds of another selection on any axis
-                ((y_axis_properly_oriented ? (this.y2 > otherSelection.y1 && this.y1 < otherSelection.y2) : (this.y2 < otherSelection.y2 && this.y1 > otherSelection.y1)) && 
-                 (x_axis_properly_oriented ? (this.x2 > otherSelection.x1 && this.x1 < otherSelection.x1) : (this.x2 < otherSelection.x2 && this.x1 > otherSelection.x2 ))) 
+                ((y_axis_properly_oriented ? (this.y2 >= otherSelection.y1 && this.y1 < otherSelection.y2) : (this.y2 < otherSelection.y2 && this.y1 >= otherSelection.y1)) && 
+                 (x_axis_properly_oriented ? (this.x2 >= otherSelection.x1 && this.x1 <= otherSelection.x1) : (this.x2 < otherSelection.x2 && this.x1 > otherSelection.x2 ))) 
                    //or if this selection wholly contains another selection.
-              || (this.x1 < otherSelection.x1 && this.y1 < otherSelection.y1 && this.x2 > otherSelection.x2 && this.y2 > otherSelection.y2) //if this is properly oriented
-              || (this.x2 < otherSelection.x1 && this.y2 < otherSelection.y1 && this.x1 > otherSelection.x2 && this.y1 > otherSelection.y2) //if this is improperly oriented
+              || ((x_axis_properly_oriented ? this.x1 : this.x2) <= otherSelection.x1 && (y_axis_properly_oriented ? this.y1 : this.y2) <= otherSelection.y1 
+                   && (!x_axis_properly_oriented ? this.x1 : this.x2) > otherSelection.x2 && (!y_axis_properly_oriented ? this.y1 : this.y2) > otherSelection.y2)
             ){
-                console.log("disallowing overlap on both axes");
+               //console.log("disallowing overlap on both axes");
                 //reset the "less-infringing" amount.
                 var x_infringement_distance = x_axis_properly_oriented ? this.x2 - otherSelection.x1 : otherSelection.x2 - this.x2;
                 var y_infringement_distance = y_axis_properly_oriented ? this.y2 - otherSelection.y1 : otherSelection.y2 - this.y2;
@@ -559,6 +660,18 @@ $.imgAreaSelect = function (img, options) {
             }
         }
     }
+
+    // Selection.prototype.fixOverlaps = function(otherSelection){
+    //     //TODO: this doesn't respect minHeight, minWidth
+    //     console.log("fixOverlaps");
+    //     this.fixResizeOverlaps(otherSelection); //fixes x1, x2
+    //     this.x2 = max(left, min(this.x2, left + imgWidth));
+    //     this.y2 = max(top, min(this.y2, top + imgHeight));
+    //     this.selection = { x1: selX(min(this.x1, this.x2)), x2: selX(max(this.x1, this.x2)),
+    //         y1: selY(min(this.y1, this.y2)), y2: selY(max(this.y1, this.y2)),
+    //         width: abs(this.x2 - this.x1), height: abs(this.y2 - this.y1) };
+    //     this.update();
+    // }
 
     /**
      * Resize the selection area respecting the minimum/maximum dimensions and
@@ -574,10 +687,9 @@ $.imgAreaSelect = function (img, options) {
          * Then, this.x2 and this.y2 are reset based on imgWidth/imgHeight.
          * And, then, if allowOverlaps is false, they're restricted not to be 
          */
+
         this.x1 = min(this.x1, left + imgWidth);
         this.y1 = min(this.y1, top + imgHeight);
-
-
 
         if (abs(this.x2 - this.x1) < minWidth) {
             /* Selection width is smaller than minWidth */
@@ -599,14 +711,6 @@ $.imgAreaSelect = function (img, options) {
                 this.y1 = top + imgHeight - minHeight;
         }
 
-        if(!options.allowOverlaps){
-            /* Restrict the dimensions of the selection based on the other selections that already exist. 
-             * It's not possible for a selection to begin inside another one (except via the API).
-             *
-             */
-            _(_(selections).filter(function(s){ return s})).each(_.bind(function(otherSelection){ this.fixOverlaps(otherSelection) }, this) );
-        }
-
         this.x2 = max(left, min(this.x2, left + imgWidth));
         this.y2 = max(top, min(this.y2, top + imgHeight));
         
@@ -624,9 +728,42 @@ $.imgAreaSelect = function (img, options) {
             this.fixAspectRatio(true);
         }
 
-        this.selection = { x1: selX(min(this.x1, this.x2)), x2: selX(max(this.x1, this.x2)),
-            y1: selY(min(this.y1, this.y2)), y2: selY(max(this.y1, this.y2)),
-            width: abs(this.x2 - this.x1), height: abs(this.y2 - this.y1) };
+
+        if(!options.allowOverlaps){
+            /* Restrict the dimensions of the selection based on the other selections that already exist. 
+             * It's not possible for a selection to begin inside another one (except via the API, moving).
+             *
+             */
+            _(_(selections).filter(_.bind(function(otherSelection){ return otherSelection && this != otherSelection }, this))).each( _.bind( function(otherSelection){ this.fixResizeOverlaps(otherSelection) }, this) );
+
+            var overlaps = _(_(selections).filter(_.bind(function(otherSelection){ return otherSelection && this != otherSelection; }, this)))
+                .map(_.bind(function(otherSelection){ return this.doesOverlap(otherSelection) || this == otherSelection; }, this) );
+           //console.log(overlaps);
+            var legal = (_(overlaps).map(function(o){ return !o; }).indexOf(false) == -1) && 
+            ( this.x1 > 0 && this.x2 < left + imgWidth && //if you ask "lolwut?," I'd agree.
+             this.y1 > 0 && this.y2 < imgHeight + top );
+            
+            //console.log("legal", legal, this.x2, imgWidth);
+
+            if(legal){
+                this.selection = { x1: selX(min(this.x1, this.x2)), x2: selX(max(this.x1, this.x2)),
+                    y1: selY(min(this.y1, this.y2)), y2: selY(max(this.y1, this.y2)) };
+                this.selection.width = abs(this.selection.x2 - this.selection.x1);
+                this.selection.height = abs(this.selection.y2 - this.selection.y1);
+            }else{
+                this.x2 = this.oldX2
+                this.y2 = this.oldY2;
+                this.selection = { x1: selX(min(this.x1, this.x2)), x2: selX(max(this.x1, this.x2)),
+                    y1: selY(min(this.y1, this.y2)), y2: selY(max(this.y1, this.y2)) };
+                this.selection.width = abs(this.selection.x2 - this.selection.x1);
+                this.selection.height = abs(this.selection.y2 - this.selection.y1);
+            }
+        }else{
+            this.selection = { x1: selX(min(this.x1, this.x2)), x2: selX(max(this.x1, this.x2)),
+                y1: selY(min(this.y1, this.y2)), y2: selY(max(this.y1, this.y2)) };
+            this.selection.width = abs(this.selection.x2 - this.selection.x1);
+            this.selection.height = abs(this.selection.y2 - this.selection.y1);
+        }
 
         this.update();
 
@@ -634,15 +771,18 @@ $.imgAreaSelect = function (img, options) {
     }
 
     /**
-     * Mousemove event handler triggered when the user is selecting an area
+     * Mousemove event handler triggered when the user is selecting an area (or resizing)
      * 
      * @param event
      *            The event object
      * @return false
      */
     Selection.prototype.selectingMouseMove = function(event) {
-        this.x2 = /w|e|^$/.test(this.resize) || this.aspectRatio ? evX(event) : viewX(this.selection.x2);
-        this.y2 = /n|s|^$/.test(this.resize) || this.aspectRatio ? evY(event) : viewY(this.selection.y2);
+        this.oldX2 = this.x2;
+        this.oldY2 = this.y2;
+
+        this.x2 = (/w|e|^$/.test(this.resize) || this.aspectRatio) ? evX(event) : viewX(this.selection.x2);
+        this.y2 = (/n|s|^$/.test(this.resize) || this.aspectRatio) ? evY(event) : viewY(this.selection.y2);
 
         this.doResize();
 
@@ -658,15 +798,46 @@ $.imgAreaSelect = function (img, options) {
      *            New viewport Y1
      */
     Selection.prototype.doMove = function(newX1, newY1) {
+        oldX1 = this.selection.x1;
+        oldY1 = this.selection.y1;
+        oldX2 = this.selection.x2;
+        oldY2 = this.selection.y2;
+
         this.x2 = (this.x1 = newX1) + this.selection.width;
         this.y2 = (this.y1 = newY1) + this.selection.height;
 
-        $.extend(this.selection, { x1: selX(this.x1), y1: selY(this.y1), x2: selX(this.x2),
-            y2: selY(this.y2) });
+        if(!options.allowOverlaps){ 
+            //move stuff
+            _(_(selections).filter(function(s){ return s})).each(_.bind(function(otherSelection){ this.fixMoveOverlaps(this.doesOverlap(otherSelection)) }, this) );
+
+            //check if those moves are legal.
+            var overlaps = _(_(selections).filter(function(otherSelection){ return otherSelection && this != otherSelection; }))
+                .map(_.bind(function(otherSelection){ return this.doesOverlap(otherSelection) }, this) );
+           //console.log(overlaps);
+            var legal = (_(overlaps).map(function(o){ return !o; }).indexOf(false) == -1) && 
+            ( min(this.x1, this.x2) > left && max(this.x1 + this.selection.width, this.x2) < (left + imgWidth) && //if you ask "lolwut?," I'd agree.
+             min(this.y1, this.y2) > top && max(this.y1 + this.selection.height, this.y2) < top + imgHeight );
+            
+           //console.log("legal", legal, max(this.x1, this.x2), left, imgWidth);
+
+            if(legal){
+                $.extend(this.selection, { x1: selX(this.x1), y1: selY(this.y1), x2: selX(this.x2),
+                    y2: selY(this.y2) });
+            }else{
+                this.x1 = oldX1;
+                this.y1 = oldY1;
+                this.x2 = oldX2;
+                this.y2 = oldY2;
+                $.extend(this.selection, { x1: oldX1, y1: oldY1, x2: oldX2, y2: oldY2 });
+            }
+        }else{
+            $.extend(this.selection, { x1: selX(this.x1), y1: selY(this.y1), x2: selX(this.x2),
+                y2: selY(this.y2) });
+        }
 
         this.update();
 
-        options.onSelectChange(img, this.getSelection()); //TODO: probly oughta change this to give all of the active selections
+        options.onSelectChange(img, this.getSelection());
     }
 
     /**
@@ -692,16 +863,34 @@ $.imgAreaSelect = function (img, options) {
         this.hide(this.$box /*.add(this.$outer)*/);
         this.hide(this.$closeBtn);
 
-        if (!skipCallbacks && !(this instanceof $.imgAreaSelect)) {
-            options.onSelectChange(img, this.getSelection()); //TODO: probly oughta change this to give all of the active selections
-            options.onSelectEnd(img, this.getSelection()); //TODO: probly oughta change this to give all of the active selections
-        }
-        options.onSelectCancel(img, this.getSelection());
-
         //remove this selection from the closure-global `selections` list.
         var index_of_this = selections.indexOf(this);
         selections.splice(index_of_this, 1, null);
+
+        if (!skipCallbacks && !(this instanceof $.imgAreaSelect)) {
+            options.onSelectChange(img, this.getSelection()); 
+            options.onSelectEnd(img, this.getSelection());
+        }
+        options.onSelectCancel(img, this.getSelection(), index_of_this);
+
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -710,29 +899,12 @@ $.imgAreaSelect = function (img, options) {
 
     //methods on the plugin
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     function startSelection() {
-        $(document).unbind('mousemove', startSelection);
+        $(document).unbind('mousemove', startSelection).unbind('mouseup.nozerosize');
 
         s = new Selection();
         selections.push(s);
+        most_recent_selection = s;
 
         adjust();
         //TODO: move most of this to the constructor?
@@ -750,8 +922,7 @@ $.imgAreaSelect = function (img, options) {
         //   $box/*.add($outer)*/.hide().fadeIn(options.fadeSpeed||0);
         s.shown = true;
 
-        $(document).unbind('mouseup.nozerosize')
-            .on('mousemove.imgareaselect', _.bind(s.selectingMouseMove, s)).one('mouseup', docMouseUp);
+        $(document).on('mousemove.imgareaselect', _.bind(s.selectingMouseMove, s)).one('mouseup', docMouseUp);
         s.$box.unbind('mousemove.imgareaselect');
 
         options.onSelectStart(img, s.getSelection());
@@ -773,15 +944,13 @@ $.imgAreaSelect = function (img, options) {
          * hide the selection and the outer area
          */
 
-        s = selections[selections.length - 1];
-
         if (options.autoHide /*|| selection.width * selection.height == 0*/)
-            hide(s.$box/*.add($outer)*/, function () { $(this).hide(); });
+            hide(most_recent_selection.$box/*.add($outer)*/, function () { $(most_recent_selection).hide(); });
 
         $(document).unbind('mousemove.imgareaselect');
-        s.$box.mousemove(_.bind(s.areaMouseMove, s));
+        most_recent_selection.$box.on('mousemove.imgareaselect', _.bind(most_recent_selection.areaMouseMove, most_recent_selection));
         
-        options.onSelectEnd(img, s.getSelection());
+        options.onSelectEnd(img, most_recent_selection.getSelection());
     }
 
 
@@ -796,7 +965,7 @@ $.imgAreaSelect = function (img, options) {
          */
         if (!imgLoaded || !$img.width())
             return;
-        
+
         /*
          * Get image offset. The .offset() method returns float values, so they
          * need to be rounded.f
@@ -947,10 +1116,11 @@ $.imgAreaSelect = function (img, options) {
         startX = /*x1 =*/ evX(event);
         startY = /*y1 =*/ evY(event);
 
-        $(document).mousemove(startSelection).on('mouseup.nozerosize.imgareaselect', function(){
-            most_recent_selection = selections[selections.length - 1];
-            most_recent_selection.cancelSelection();
-        }); 
+       //console.log("imgMouseDown");
+
+        $(document).on("mousemove.imgareaselect", startSelection).on('mouseup.nozerosize.imgareaselect', function(){
+            $(document).unbind("mousemove.imgareaselect");
+        });
         //for multi-select, remove mouseup(); a click on the image doesn't erase the previous selection.
         // on second thought, I'm not sure that's what's going on. I think mouseup just erases the selection if you didn't move the mouse.
         // on third thought, I need to reengineer this so that I have a cancelSelection fucntion.
@@ -990,7 +1160,7 @@ $.imgAreaSelect = function (img, options) {
 
                 if (options.show) {
                     shown = true;
-                    adjust();
+                    s.adjust();
                     s.update();
                     s.$box/*.add(s.$outer)*/.hide().fadeIn(options.fadeSpeed||0);
                 }
@@ -1002,7 +1172,7 @@ $.imgAreaSelect = function (img, options) {
          * that the plugin has been fully initialized and the object instance is
          * available (so that it can be obtained in the callback).
          */
-        setTimeout(function () { options.onInit(img, _(selections).map(function(s){ return s.getSelection() })) }, 0); //disabled for now.
+        setTimeout(function () { options.onInit(img, _(selections).map(function(s){ return s.getSelection() })) }, 0); 
     }
 
     var docKeyPress = function(event) {
@@ -1221,7 +1391,7 @@ $.imgAreaSelect = function (img, options) {
                 if (options.enable || options.disable === false) {
                     /* Enable the plugin */
                     if (options.resizable || options.movable)
-                        s.$box.mousemove(areaMouseMove).on('mousedown.imgareaselect', _bind(s.areaMouseDown, s));
+                        s.$box.mousemove(_.bind(s.areaMouseMove,s)).on('mousedown.imgareaselect', _.bind(s.areaMouseDown, s));
         
                     $(window).resize(windowResize);
                 }
@@ -1248,10 +1418,22 @@ $.imgAreaSelect = function (img, options) {
      * Public API
      */
     
-
+     /*
+      *
+      *
+      *
+      */
     this.getImg = function(){
         return $img;
     }
+
+    this.getDebugPositioning = function(){
+        return {left: left, 
+        top: top,
+        imgWidth: imgWidth, 
+        imgHeight: imgHeight};
+    }
+
     /**
      * Get current options
      * 
@@ -1283,7 +1465,7 @@ $.imgAreaSelect = function (img, options) {
     }
 
     /**
-     * Set the current selection
+     * Create a new selection
      * 
      * @param x1
      *            X coordinate of the upper left corner of the selection area
@@ -1296,33 +1478,57 @@ $.imgAreaSelect = function (img, options) {
      * @param noScale
      *            If set to <code>true</code>, scaling is not applied to the
      *            new selection
-     * @throws {}
-     * 
+     * @return selection object from the newly-created Selection. May be
+     *            different from given coordinates if they overlap.
      */
 
     this.createNewSelection = function(x1, y1, x2, y2){ 
         var s = new Selection(x1, y1, x2, y2);
-        if(_(selections).map(function(otherSelection){ return s ? s.overlaps(otherSelection) : false }).indexOf(true) > -1)
-            throw new Error("New selection overlaps existing selection.");
-        selections.push(s);
-        return s.getSelection();
+        if(!options.allowOverlaps){
+            var overlaps = _(_(selections).filter(function(otherSelection){ return otherSelection; }))
+                .map(_.bind(function(otherSelection){ return s.doesOverlap(otherSelection)}, s) );
+            var legal = (_(overlaps).map(function(o){ return !o; }).indexOf(false) == -1);
+        }
+        if(options.allowOverlaps || legal){
+            //if the selection is illegal, don't create it.
+            selections.push(s);
+            return s.getSelection();
+        }else{
+            //but if the selection is illegal and overlaps only one other thing, change that other one
+            if (_(overlaps).reject(function(v){ return v; }).length == 1){
+                //return their union.
+                var overlap_index = _(overlaps).map(function(v){ return !!v; }).indexOf(true);
+                var overlap = selections[overlap_index];
+                overlap.setSelection( min(overlap.selection.x1, x1, overlap.selection.x2, x2),
+                                      min(overlap.selection.y1, y1, overlap.selection.y2, y2),
+                                      max(overlap.selection.x1, x1, overlap.selection.x2, x2),
+                                      max(overlap.selection.y1, y1, overlap.selection.y2, y2) );
+                overlap.update();
+                s.cancelSelection(true);
+                return false;
+            }else{
+                s.cancelSelection(true);
+                return false;
+            }
+        }
     };
+
     //TODO: create a setSelection method that modifies all selection objects. (maybe?)
-    //TODO: ensure Selections returned from API are guaranteed to be in creation order.
-    //TODO: option to disallow overlapping selections.
     
-    this.update = function(){ _(_(selections).filter(function(s){ return s})).each(function(s){ s.update }); };
+
+    this.update = function(){ _(_(selections).filter(function(s){ return s})).each(function(s){ s.doUpdate() }); };
 
     /**
      * Cancel selection
      */
     this.cancelSelections = function(){ 
             // I can't simply do `_(selections).each(function(s){ s.cancelSelection(true); });` because cancelSelection modifies `selections` concurrently with iterating over `selections`, so some selections get skipped.
-            var selectionsLength = selections.length
-            while(selectionsLength > 0){
-                if(selections[0]) //skip the nulls.
-                    selections[0].cancelSelection(true);
-                selectionsLength--;
+            var selectionsIndex = selections.length
+            while(selectionsIndex >= 1){
+                if(selections[selectionsIndex - 1]) //skip the nulls.
+                    selections[selectionsIndex - 1].cancelSelection(true);
+                selectionsIndex--;
+                //console.log(selectionsIndex, selections);
             }
         };
     
@@ -1396,6 +1602,8 @@ $.imgAreaSelect = function (img, options) {
     //     s.$closeBtn.css({ zIndex: zIndex + 3 || 3 });
     //     s.$area.add($border).css({ position: 'absolute', fontSize: 0 });
     // })
+
+
     /*
      * If the image has been fully loaded, or if it is not really an image (eg.
      * a div), call imgLoad() immediately; otherwise, bind it to be called once
