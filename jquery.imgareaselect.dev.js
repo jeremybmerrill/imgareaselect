@@ -29,7 +29,7 @@ function div(cssClass) {
      * @return A jQuery object representing the new element
      */
     var mydiv = $('<div/>');
-    mydiv.addClass("imgareaselect"); 
+    mydiv.addClass(options.classPrefix); 
     if(cssClass){
         mydiv.addClass(cssClass);
     }
