@@ -9,9 +9,11 @@ TODO for API near-compatibility:
 
 better overlap prevention
   apparently, the term of art for this is "collision detection" and the best implementation (for small number of rectangles in 2-space) is a quadtree. Collision solver?
-  
+
 keypress support.
 testing everything.
 force aspect ratio (broken wrt to overlap prevention on resize.)
 fading
 multipleSelections option (when `false`, behave as close as possible to original imgAreaSelect)
+
+TODO: move rectangles stuff into another library.
