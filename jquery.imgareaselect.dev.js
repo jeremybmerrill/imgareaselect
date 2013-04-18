@@ -678,7 +678,10 @@ $.imgAreaSelect = function (img, options) {
         this.oldX2 = this.x2;
         this.oldY2 = this.y2;
 
-        $('.imgareaselect-closebtn').css("cursor", "default");
+        // TODO: give each selection its own zIndex, increase that when moving/resizing.
+        // this will solve changing pointer issue when mouse is over other selections. 
+        // this.zIndex
+        //$('.imgareaselect-closebtn').css("cursor", "default");
 
         this.x2 = (/w|e|^$/.test(this.resize) || options.aspectRatio) ? evX(event) : viewX(this.selection.x2);
         this.y2 = (/n|s|^$/.test(this.resize) || options.aspectRatio) ? evY(event) : viewY(this.selection.y2);
@@ -723,6 +726,10 @@ $.imgAreaSelect = function (img, options) {
     Selection.prototype.movingMouseMove = function(event) {
         this.x1 = max(left, min(this.startX + evX(event), left + imgWidth - this.selection.width));
         this.y1 = max(top, min(this.startY + evY(event), top + imgHeight - this.selection.height));
+
+        // TODO: give each selection its own zIndex, increase that when moving/resizing.
+        // this will solve changing pointer issue when mouse is over other selections. 
+        // this.zIndex
 
         this.doMove(this.x1, this.y1);
 
