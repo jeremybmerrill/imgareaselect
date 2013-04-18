@@ -28,31 +28,31 @@ Rectangle.prototype.doesOverlap = function(otherRectangle){
     var top_infringement_amount = 0;
     var bottom_infringement_amount = 0;
 
-    if( (this.x2 > otherRectangle.x1 && this.x1 < otherRectangle.x2) && //infringe from the left
-            ((this.y1 > otherRectangle.y1 && this.y1 < otherRectangle.y2) ||
-            (this.y2 > otherRectangle.y1 && this.y2 < otherRectangle.y2)||
-            (this.y1 < otherRectangle.y1 && this.y2 > otherRectangle.y2))){ 
+    if( (this.x2 > otherRectangle.x1 && this.x1 < otherRectangle.x2) && //infringe from the right
+            ((this.y1 >= otherRectangle.y1 && this.y1 <= otherRectangle.y2) ||
+            (this.y2 >= otherRectangle.y1 && this.y2 <= otherRectangle.y2)||
+            (this.y1 <= otherRectangle.y1 && this.y2 >= otherRectangle.y2))){ 
        //console.log("infringes on the left");
         left_infringement_amount = this.x2 - otherRectangle.x1;
     }
-    if((this.x1 < otherRectangle.x2 && this.x2 > otherRectangle.x1) && //infringe from the right
-            ((this.y1 > otherRectangle.y1 && this.y1 < otherRectangle.y2) ||
-            (this.y2 > otherRectangle.y1 && this.y2 < otherRectangle.y2)||
-            (this.y1 < otherRectangle.y1 && this.y2 > otherRectangle.y2))){ 
+    if((this.x1 < otherRectangle.x2 && this.x2 > otherRectangle.x1) && //infringe from the left
+            ((this.y1 >= otherRectangle.y1 && this.y1 <= otherRectangle.y2) ||
+            (this.y2 >= otherRectangle.y1 && this.y2 <= otherRectangle.y2)||
+            (this.y1 <= otherRectangle.y1 && this.y2 >= otherRectangle.y2))){ 
        //console.log("infringes on the right");
         right_infringement_amount = otherRectangle.x2 - this.x1;
     }
     if( (this.y2 > otherRectangle.y1 && this.y1 < otherRectangle.y2)  && //infringe from the top
-            ((this.x1 > otherRectangle.x1 && this.x1 < otherRectangle.x2) ||
-            (this.x2 > otherRectangle.x1 && this.x2 < otherRectangle.x2) ||
-            (this.x1 < otherRectangle.x1 && this.x2 > otherRectangle.x2))){
+            ((this.x1 >= otherRectangle.x1 && this.x1 <= otherRectangle.x2) ||
+            (this.x2 >= otherRectangle.x1 && this.x2 <= otherRectangle.x2) ||
+            (this.x1 <= otherRectangle.x1 && this.x2 >= otherRectangle.x2))){
        //console.log("infringes on the top");
         top_infringement_amount = this.y2 - otherRectangle.y1;
     }
     if((this.y1 < otherRectangle.y2 && this.y2 > otherRectangle.y1) && //infringe from the bottom
-            ((this.x1 > otherRectangle.x1 && this.x1 < otherRectangle.x2) ||
-            (this.x2 > otherRectangle.x1 && this.x2 < otherRectangle.x2)||
-            (this.x1 < otherRectangle.x1 && this.x2 > otherRectangle.x2))){
+            ((this.x1 >= otherRectangle.x1 && this.x1 <= otherRectangle.x2) ||
+            (this.x2 >= otherRectangle.x1 && this.x2 <= otherRectangle.x2)||
+            (this.x1 <= otherRectangle.x1 && this.x2 >= otherRectangle.x2))){
        //console.log("infringes on the bottom");
         bottom_infringement_amount = otherRectangle.y2 - this.y1;
     }
@@ -79,14 +79,14 @@ Rectangle.prototype.regenerateWidthAndHeight = function(){
 // so if a rectangle infringes on the south, expandDirection should be 'n'
 
 Rectangle.prototype.superBoundingBox = function(otherRectangle, allOtherRectangles, expandDirection){
-    var axis =  /w|e|^$/.test(expandDirection) ? 'x' : 'y';
+    var axis =  /left|right|^$/.test(expandDirection) ? 'x' : 'y';
     var my_super_bounding_box = new Rectangle(otherRectangle.x1, otherRectangle.y1, otherRectangle.x2, otherRectangle.y2);
     var temp_super_bounding_box = new Rectangle(otherRectangle.x1, otherRectangle.y1, otherRectangle.x2, otherRectangle.y2);
     if(axis == 'y'){
       temp_super_bounding_box.y1 -= this.height;
       temp_super_bounding_box.x1 = this.x1;
       temp_super_bounding_box.x2 = this.x2;
-    }else if(axis == 'y'){
+    //}else if(axis == 'y'){
       temp_super_bounding_box.y2 += this.height;
       temp_super_bounding_box.x1 = this.x1;
       temp_super_bounding_box.x2 = this.x2;
@@ -94,37 +94,46 @@ Rectangle.prototype.superBoundingBox = function(otherRectangle, allOtherRectangl
       temp_super_bounding_box.x1 -= this.width;
       temp_super_bounding_box.y1 = this.y1;
       temp_super_bounding_box.y2 = this.y2;
-    }else if(axis == 'x'){
+    //}else if(axis == 'x'){
       temp_super_bounding_box.x2 += this.width;
       temp_super_bounding_box.y1 = this.y1;
       temp_super_bounding_box.y2 = this.y2;
     }
     temp_super_bounding_box.regenerateWidthAndHeight();
 
-    console.log("tsbb", temp_super_bounding_box)
+    console.log("expandDirection", expandDirection)
+    //console.log("tsbb", temp_super_bounding_box)
     for(var i=0; i < allOtherRectangles.length; i++){
       otherOtherRectangle = allOtherRectangles[i];
-      console.log("oor", otherOtherRectangle)
+      //console.log("oor", otherOtherRectangle)
       if( temp_super_bounding_box.doesOverlap(otherOtherRectangle)){
         console.log("expanding sbb");
         allOtherOtherRectangles = _(allOtherRectangles).reject(function(r){ return r == otherOtherRectangle });
-        if(expandDirection == 'top'){
+        if(expandDirection == 'bottom'){
           my_super_bounding_box.y1 = otherOtherRectangle.y1;
-        }else if(expandDirection == 'bottom'){
+          // my_super_bounding_box.x1 = otherOtherRectangle.x1;
+          // my_super_bounding_box.x2 = otherOtherRectangle.x2;
+        }else if(expandDirection == 'top'){
           my_super_bounding_box.y2 = otherOtherRectangle.y2;
+          // my_super_bounding_box.x1 = otherOtherRectangle.x1;
+          // my_super_bounding_box.x2 = otherOtherRectangle.x2;
         }else if(expandDirection == 'left'){
           my_super_bounding_box.x1 = otherOtherRectangle.x1;
+          // my_super_bounding_box.y1 = otherOtherRectangle.y1;
+          // my_super_bounding_box.y2 = otherOtherRectangle.y2;
         }else if(expandDirection == 'right'){
           my_super_bounding_box.x2 = otherOtherRectangle.x2;
+          // my_super_bounding_box.y1 = otherOtherRectangle.y1;
+          // my_super_bounding_box.y2 = otherOtherRectangle.y2;
         }
         my_super_bounding_box.regenerateWidthAndHeight();
         if(allOtherOtherRectangles.length > 0){
           my_super_bounding_box = this.superBoundingBox(my_super_bounding_box, allOtherOtherRectangles, expandDirection)
         }else{
-          console.log("base case, not recursing");
+          //console.log("base case, not recursing");
         }
       }
     }
-    console.log("return sbb", my_super_bounding_box)
+    //console.log("return sbb", my_super_bounding_box)
     return my_super_bounding_box;
 }

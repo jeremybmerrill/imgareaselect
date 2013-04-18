@@ -526,26 +526,29 @@ $.imgAreaSelect = function (img, options) {
 
     Selection.prototype.fixMoveOverlaps = function(){
         //in 2 rectangle secenario, loop through the offsets, smallest to biggest, to find one that's legal wrt the borders.
-        _(_(selections).filter(function(s){ return s})).each(_.bind(
+        _(_(selections).filter( _.bind(function(s){ return s && s != this; }, this)  )).each(_.bind(
             function(otherSelection){
                 if(adjustments = this.selection.doesOverlap(otherSelection.selection)){
                     var direction = _(_(adjustments).pairs()).sortBy(function(pair){ return pair[1]; })[0][0];
 
-                    var otherRectangles = _(_(selections).reject(_.bind(function(s){ return s == this || s == otherSelection; }, this))).map(function(s){ return s.selection; })
+                    var otherRectangles = _(_(selections).reject(_.bind(function(s){ return _(s).isNull() || s == this || s == otherSelection; }, this))).map(function(s){ return s.selection; })
                     var superBoundingBox = this.selection.superBoundingBox(otherSelection.selection, otherRectangles, direction);
                     console.log("sbb", superBoundingBox);
                     var sbbAdjustments = this.selection.doesOverlap(superBoundingBox);
+                    console.log("sbbAdjustments", sbbAdjustments)
+                    if(!sbbAdjustments)
+                        console.log(superBoundingBox);
 
                     for( var i=0; i<4; i++){
                         pair = _(_(sbbAdjustments).pairs()).sortBy(function(pair){ return pair[1]; })[i];
                         if( this.isLegal(pair[0], pair[1])){
-                            console.log("legal to move to " + pair[0]);;
+                            //console.log("legal to move to " + pair[0]);;
                             var infringement_direction = pair[0];
                             var infringement_amount = pair[1];
                             if(infringement_direction == "bottom"){
                                 this.selection.y1 += infringement_amount;
                                 this.selection.y2 += infringement_amount;
-                                return true;
+                                return true
                             }else if(infringement_direction == "top"){
                                 this.selection.y1 -= infringement_amount;
                                 this.selection.y2 -= infringement_amount;
@@ -1013,7 +1016,7 @@ $.imgAreaSelect = function (img, options) {
      * Window resize event handler
      */
     function windowResize() {
-        doUpdate(false);
+        adjust();
     }
 
     /**
