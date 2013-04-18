@@ -1,4 +1,4 @@
-This is a fork of odyniec's [imgAreaSelect]i(http://odyniec.net/projects/imgareaselect/) that allows for multiple selections to be made on the same document.
+This is a fork of odyniec's [imgAreaSelect](http://odyniec.net/projects/imgareaselect/) that allows for multiple selections to be made on the same document.
 
 Jeremy B. Merrill made these modifications for use in [Tabula](http://github.com/jazzido/tabula), a tool for liberating tabular data from PDFs.
 
@@ -17,3 +17,9 @@ fading
 multipleSelections option (when `false`, behave as close as possible to original imgAreaSelect)
 
 TODO: move rectangles stuff into another library.
+TODO:
+write documentation
+fix stuff that I didn't use (e.g. keypresses, various API options).
+remove underscore dependency.
+reverse selection shading (i.e. make the selection completely transparent, unselected areas opaque). This is really hard.
+Fix overlapping selection prevention.
