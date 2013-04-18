@@ -82,43 +82,49 @@ Rectangle.prototype.superBoundingBox = function(otherRectangle, allOtherRectangl
     var axis =  /w|e|^$/.test(expandDirection) ? 'x' : 'y';
     var my_super_bounding_box = new Rectangle(otherRectangle.x1, otherRectangle.y1, otherRectangle.x2, otherRectangle.y2);
     var temp_super_bounding_box = new Rectangle(otherRectangle.x1, otherRectangle.y1, otherRectangle.x2, otherRectangle.y2);
-    console.log(temp_super_bounding_box);
-    if(expandDirection == 'bottom'){
+    if(axis == 'y'){
       temp_super_bounding_box.y1 -= this.height;
       temp_super_bounding_box.x1 = this.x1;
-      temp_super_bounding_box.x2 = this.x1;
-    }else if(axis == 'top'){
+      temp_super_bounding_box.x2 = this.x2;
+    }else if(axis == 'y'){
       temp_super_bounding_box.y2 += this.height;
       temp_super_bounding_box.x1 = this.x1;
-      temp_super_bounding_box.x2 = this.x1;
-    }else if(axis == 'left'){
+      temp_super_bounding_box.x2 = this.x2;
+    }else if(axis == 'x'){
       temp_super_bounding_box.x1 -= this.width;
       temp_super_bounding_box.y1 = this.y1;
       temp_super_bounding_box.y2 = this.y2;
-    }else if(axis == 'right'){
+    }else if(axis == 'x'){
       temp_super_bounding_box.x2 += this.width;
       temp_super_bounding_box.y1 = this.y1;
       temp_super_bounding_box.y2 = this.y2;
     }
     temp_super_bounding_box.regenerateWidthAndHeight();
 
+    console.log("tsbb", temp_super_bounding_box)
     for(var i=0; i < allOtherRectangles.length; i++){
       otherOtherRectangle = allOtherRectangles[i];
+      console.log("oor", otherOtherRectangle)
       if( temp_super_bounding_box.doesOverlap(otherOtherRectangle)){
-        allOtherOtherRectangles = _.reject(allOtherRectangles, otherOtherRectangle);
-        if(expandDirection == 'bottom'){
-          my_super_bounding_box.y1 -= otherOtherRectangle.height;
-        }else if(axis == 'top'){
-          my_super_bounding_box.y2 += otherOtherRectangle.height;
-        }else if(axis == 'left'){
-          my_super_bounding_box.x1 -= otherOtherRectangle.width;
-        }else if(axis == 'right'){
-          my_super_bounding_box.x2 += otherOtherRectangle.width;
+        console.log("expanding sbb");
+        allOtherOtherRectangles = _(allOtherRectangles).reject(function(r){ return r == otherOtherRectangle });
+        if(expandDirection == 'top'){
+          my_super_bounding_box.y1 = otherOtherRectangle.y1;
+        }else if(expandDirection == 'bottom'){
+          my_super_bounding_box.y2 = otherOtherRectangle.y2;
+        }else if(expandDirection == 'left'){
+          my_super_bounding_box.x1 = otherOtherRectangle.x1;
+        }else if(expandDirection == 'right'){
+          my_super_bounding_box.x2 = otherOtherRectangle.x2;
         }
         my_super_bounding_box.regenerateWidthAndHeight();
-
-        my_super_bounding_box = this.superBoundingBox(my_super_bounding_box, allOtherOtherRectangles, expandDirection)
+        if(allOtherOtherRectangles.length > 0){
+          my_super_bounding_box = this.superBoundingBox(my_super_bounding_box, allOtherOtherRectangles, expandDirection)
+        }else{
+          console.log("base case, not recursing");
+        }
       }
     }
+    console.log("return sbb", my_super_bounding_box)
     return my_super_bounding_box;
 }

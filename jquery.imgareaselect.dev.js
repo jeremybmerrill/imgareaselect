@@ -529,14 +529,15 @@ $.imgAreaSelect = function (img, options) {
         _(_(selections).filter(function(s){ return s})).each(_.bind(
             function(otherSelection){
                 if(adjustments = this.selection.doesOverlap(otherSelection.selection)){
-                    var direction = _(_(adjustments).pairs()).sortBy(function(pair){ return pair[1]; });
-                    superBoundingBox = this.selection.superBoundingBox(otherSelection.selection, direction);
+                    var direction = _(_(adjustments).pairs()).sortBy(function(pair){ return pair[1]; })[0][0];
+
+                    var otherRectangles = _(_(selections).reject(_.bind(function(s){ return s == this || s == otherSelection; }, this))).map(function(s){ return s.selection; })
+                    var superBoundingBox = this.selection.superBoundingBox(otherSelection.selection, otherRectangles, direction);
                     console.log("sbb", superBoundingBox);
-                    sbbAdjustments = this.selection.doesOverlap(superBoundingBox);
+                    var sbbAdjustments = this.selection.doesOverlap(superBoundingBox);
 
                     for( var i=0; i<4; i++){
-                        pair = _(_(adjustments).pairs()).sortBy(function(pair){ return pair[1]; })[i];
-                        console.log("pair", pair);
+                        pair = _(_(sbbAdjustments).pairs()).sortBy(function(pair){ return pair[1]; })[i];
                         if( this.isLegal(pair[0], pair[1])){
                             console.log("legal to move to " + pair[0]);;
                             var infringement_direction = pair[0];
@@ -557,8 +558,6 @@ $.imgAreaSelect = function (img, options) {
                                 this.selection.x1 += infringement_amount;
                                 this.selection.x2 += infringement_amount;
                                 return true;
-                            }else{
-                                throw new Exception();
                             }
                             console.log("one direction was illegal")
                             //this.doUpdate();
