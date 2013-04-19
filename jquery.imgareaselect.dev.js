@@ -525,8 +525,7 @@ $.imgAreaSelect = function (img, options) {
     }
 
     Selection.prototype.fixMoveOverlaps = function(movingDirection){
-        //in 2 rectangle secenario, loop through the offsets, smallest to biggest, to find one that's legal wrt the borders.
-        _(_(_(_(selections).
+                _(_(_(_(selections).
                 filter( _.bind(function(s){ return s && s != this; }, this)  ))).
                 sortBy( _.bind(function(s) {return this.selection.centerPointDistance(s.selection)}, this) )).
                 each(_.bind(
@@ -539,12 +538,19 @@ $.imgAreaSelect = function (img, options) {
                     //console.log("sbb", superBoundingBox);
                     var sbbAdjustments = this.selection.doesOverlap(superBoundingBox);
                     //console.log("sbbAdjustments", sbbAdjustments)
-                    if(!sbbAdjustments)
+                    //if(!sbbAdjustments)
                         console.log(superBoundingBox);
 
                     //TODO: problem: if we end up moving the rectangle in a different direction than the mouse just moved,
                     //then the sbb is in the wrong place. Can I find a way to determine which way the selection is going to be moved,
                     // then move it based on that direction's sbb?
+                    //to replicate: | -_| move the leftmost |. When the mouse crosses the rightmost bar's midpoint, it'll 
+                    //   move to the left edge of the rightmost |, overlapping _, when it should move to the right edge of -.
+
+                    // another problem here is the loop. If this overlaps multiple rectangles, union them, maybe? Just throw out non-overlapping rectangles, sbb will get the relevant ones.
+
+
+                    //in 2 rectangle secenario, loop through the offsets, smallest to biggest, to find one that's legal wrt the borders.
                     for( var i=0; i<4; i++){
                         pair = _(_(sbbAdjustments).pairs()).sortBy(function(pair){ return pair[1]; })[i];
                         if( this.isLegal(pair[0], pair[1])){

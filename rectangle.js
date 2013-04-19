@@ -86,10 +86,6 @@ Rectangle.prototype.regenerateWidthAndHeight = function(){
 // rectangle is coming from, i.e. the opposite direction in which to expand.
 // so if a rectangle infringes on the south, expandDirection should be 'n'
 
-//TODO: multiple axes. hold old lcation, see if new location changes one both axes.
-// then adjust on those axes for temp_super_bounding_box.
-//expand super bounding box to just be the bouding box of those.
-
 Rectangle.prototype.superBoundingBox = function(otherRectangle, allOtherRectangles, movingDirection){
     //var axis =  /left|right|^$/.test(expandDirection) ? 'x' : 'y';
     var my_super_bounding_box = new Rectangle(otherRectangle.x1, otherRectangle.y1, otherRectangle.x2, otherRectangle.y2);
