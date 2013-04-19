@@ -524,42 +524,65 @@ $.imgAreaSelect = function (img, options) {
         }
     }
 
-    Selection.prototype.fixMoveOverlaps = function(){
+    Selection.prototype.fixMoveOverlaps = function(movingDirection){
         //in 2 rectangle secenario, loop through the offsets, smallest to biggest, to find one that's legal wrt the borders.
-        _(_(selections).filter( _.bind(function(s){ return s && s != this; }, this)  )).each(_.bind(
+        _(_(_(_(selections).
+                filter( _.bind(function(s){ return s && s != this; }, this)  ))).
+                sortBy( _.bind(function(s) {return this.selection.centerPointDistance(s.selection)}, this) )).
+                each(_.bind(
             function(otherSelection){
                 if(adjustments = this.selection.doesOverlap(otherSelection.selection)){
-                    var direction = _(_(adjustments).pairs()).sortBy(function(pair){ return pair[1]; })[0][0];
+                    //var movingDirection = _(_(adjustments).pairs()).sortBy(function(pair){ return pair[1]; })[0][0];
 
                     var otherRectangles = _(_(selections).reject(_.bind(function(s){ return _(s).isNull() || s == this || s == otherSelection; }, this))).map(function(s){ return s.selection; })
-                    var superBoundingBox = this.selection.superBoundingBox(otherSelection.selection, otherRectangles, direction);
-                    console.log("sbb", superBoundingBox);
+                    var superBoundingBox = this.selection.superBoundingBox(otherSelection.selection, otherRectangles, movingDirection);
+                    //console.log("sbb", superBoundingBox);
                     var sbbAdjustments = this.selection.doesOverlap(superBoundingBox);
-                    console.log("sbbAdjustments", sbbAdjustments)
+                    //console.log("sbbAdjustments", sbbAdjustments)
                     if(!sbbAdjustments)
                         console.log(superBoundingBox);
 
+                    //TODO: problem: if we end up moving the rectangle in a different direction than the mouse just moved,
+                    //then the sbb is in the wrong place. Can I find a way to determine which way the selection is going to be moved,
+                    // then move it based on that direction's sbb?
                     for( var i=0; i<4; i++){
                         pair = _(_(sbbAdjustments).pairs()).sortBy(function(pair){ return pair[1]; })[i];
                         if( this.isLegal(pair[0], pair[1])){
-                            //console.log("legal to move to " + pair[0]);;
-                            var infringement_direction = pair[0];
-                            var infringement_amount = pair[1];
-                            if(infringement_direction == "bottom"){
-                                this.selection.y1 += infringement_amount;
-                                this.selection.y2 += infringement_amount;
+                            //move in the direction to closest legal spot.
+                            var min_legal_infringement_direction = pair[0];
+                            console.log("legal to move to " + min_legal_infringement_direction);
+                            var min_legal_infringement_amount = pair[1];
+                            if(min_legal_infringement_direction == "bottom"){
+                                this.selection.y1 += min_legal_infringement_amount;
+                                this.selection.y2 += min_legal_infringement_amount;
+                                // if(!/n/.test(movingDirection)){
+                                //     console.log("recursing n", movingDirection)
+                                //     this.fixMoveOverlaps('n');
+                                // }
                                 return true
-                            }else if(infringement_direction == "top"){
-                                this.selection.y1 -= infringement_amount;
-                                this.selection.y2 -= infringement_amount;
+                            }else if(min_legal_infringement_direction == "top"){
+                                this.selection.y1 -= min_legal_infringement_amount;
+                                this.selection.y2 -= min_legal_infringement_amount;
+                                // if(!/s/.test(movingDirection)){
+                                //     console.log("recursing s", movingDirection)
+                                //     this.fixMoveOverlaps('s');
+                                // }
                                 return true;
-                            }else if(infringement_direction == "left"){
-                                this.selection.x1 -= infringement_amount;
-                                this.selection.x2 -= infringement_amount;
+                            }else if(min_legal_infringement_direction == "left"){
+                                this.selection.x1 -= min_legal_infringement_amount;
+                                this.selection.x2 -= min_legal_infringement_amount;
+                                // if(!/w/.test(movingDirection)){
+                                //     console.log("recursing w", movingDirection)
+                                //     this.fixMoveOverlaps('w');
+                                // }
                                 return true;
-                            }else if(infringement_direction == "right"){
-                                this.selection.x1 += infringement_amount;
-                                this.selection.x2 += infringement_amount;
+                            }else if(min_legal_infringement_direction == "right"){
+                                this.selection.x1 += min_legal_infringement_amount;
+                                this.selection.x2 += min_legal_infringement_amount;
+                                // if(!/e/.test(movingDirection)){
+                                //     console.log("recursing e", movingDirection)
+                                //     this.fixMoveOverlaps('e');
+                                // }
                                 return true;
                             }
                             console.log("one direction was illegal")
@@ -703,6 +726,17 @@ $.imgAreaSelect = function (img, options) {
      *            New viewport Y1
      */
     Selection.prototype.doMove = function(newX1, newY1) {
+        var movingDirection = '';
+        if(selY(newY1) - this.selection.y1 < 0){
+            movingDirection += 'n'
+        }else if(selY(newY1) - this.selection.y1 > 0){
+            movingDirection += 's'
+        }
+        if ((selX(newX1) - this.selection.x1) < 0){
+            movingDirection += 'w'
+        }else if((selX(newX1) - this.selection.x1) > 0){
+            movingDirection += 'e'
+        }
         this.x2 = (this.x1 = newX1) + this.selection.width;
         this.y2 = (this.y1 = newY1) + this.selection.height;
 
@@ -710,8 +744,9 @@ $.imgAreaSelect = function (img, options) {
             y2: selY(this.y2) });
 
 
-        if(!options.allowOverlaps){ 
-            this.fixMoveOverlaps()
+        if(!options.allowOverlaps && movingDirection != ''){ 
+            //console.log(movingDirection)
+            this.fixMoveOverlaps(movingDirection)
         }
         this.selection.regenerateWidthAndHeight();
 
@@ -727,14 +762,17 @@ $.imgAreaSelect = function (img, options) {
      * @return false
      */
     Selection.prototype.movingMouseMove = function(event) {
-        this.x1 = max(left, min(this.startX + evX(event), left + imgWidth - this.selection.width));
-        this.y1 = max(top, min(this.startY + evY(event), top + imgHeight - this.selection.height));
+        //this.x1 = max(left, min(this.startX + evX(event), left + imgWidth - this.selection.width));
+        //this.y1 = max(top, min(this.startY + evY(event), top + imgHeight - this.selection.height));
+        var newX1 = max(left, min(this.startX + evX(event), left + imgWidth - this.selection.width));
+        var newY1 = max(top, min(this.startY + evY(event), top + imgHeight - this.selection.height));
+
 
         // TODO: give each selection its own zIndex, increase that when moving/resizing.
         // this will solve changing pointer issue when mouse is over other selections. 
         // this.zIndex
 
-        this.doMove(this.x1, this.y1);
+        this.doMove(newX1, newY1);
 
         event.preventDefault();     
         return false;
