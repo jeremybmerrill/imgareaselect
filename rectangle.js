@@ -16,6 +16,9 @@ function Rectangle(x1, y1, x2, y2){
   this.width = this.x2 - this.x1;
   this.height = this.y2 - this.y1;
 }
+Rectangle.prototype.dup = function(){
+  return new Rectangle(this.x1, this.y1, this.x2, this.y2);
+}
 Rectangle.prototype.set = function(obj){
   this.x1 = min(obj.x1, obj.x2);
   this.x2 = max(obj.x1, obj.x2);
@@ -74,6 +77,13 @@ Rectangle.prototype.centerPointDistance = function(otherRectangle){
   otherCenterY = otherRectangle.y1 + (otherRectangle.height / 2);
   return Math.sqrt( Math.pow(thisCenterX + otherCenterX, 2) + Math.pow(thisCenterY + otherCenterY, 2) );
 }
+Rectangle.prototype.minEdgeDistance = function(otherRectangle){
+  return min( abs(otherRectangle.x1 - this.x2),
+              abs(otherRectangle.x2 - this.y1),
+              abs(otherRectangle.y1 - this.y2),
+              abs(otherRectangle.y2 - this.y1) )
+}
+
 
 Rectangle.prototype.regenerateWidthAndHeight = function(){
   this.width = abs(this.x2 - this.x1);
@@ -94,21 +104,21 @@ Rectangle.prototype.superBoundingBox = function(otherRectangle, allOtherRectangl
     var temp_super_bounding_box = new Rectangle(otherRectangle.x1, otherRectangle.y1, otherRectangle.x2, otherRectangle.y2);
     if(/n/.test(movingDirection)){
       temp_super_bounding_box.y1 -= this.height;
-      // temp_super_bounding_box.x1 = this.x1;
-      // temp_super_bounding_box.x2 = this.x2;
+      temp_super_bounding_box.x1 = min(this.x1, temp_super_bounding_box.x1);
+      temp_super_bounding_box.x2 = max(this.x2, temp_super_bounding_box.x2);
     }else if(/s/.test(movingDirection)){
       temp_super_bounding_box.y2 += this.height;
-      // temp_super_bounding_box.x1 = this.x1;
-      // temp_super_bounding_box.x2 = this.x2;
+      temp_super_bounding_box.x1 = min(this.x1, temp_super_bounding_box.x1);
+      temp_super_bounding_box.x2 = max(this.x2, temp_super_bounding_box.x2);
     }
     if(/w/.test(movingDirection)){
       temp_super_bounding_box.x1 -= this.width;
-      // temp_super_bounding_box.y1 = this.y1;
-      // temp_super_bounding_box.y2 = this.y2;
+      temp_super_bounding_box.y1 = min(this.y1, temp_super_bounding_box.y1);
+      temp_super_bounding_box.y2 = max(this.y2, temp_super_bounding_box.y2);
     }else if(/e/.test(movingDirection)){
       temp_super_bounding_box.x2 += this.width;
-      // temp_super_bounding_box.y1 = this.y1;
-      // temp_super_bounding_box.y2 = this.y2;
+      temp_super_bounding_box.y1 = min(this.y1, temp_super_bounding_box.y1);
+      temp_super_bounding_box.y2 = max(this.y2, temp_super_bounding_box.y2);
     }
     temp_super_bounding_box.regenerateWidthAndHeight();
 

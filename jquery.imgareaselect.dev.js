@@ -525,85 +525,163 @@ $.imgAreaSelect = function (img, options) {
     }
 
     Selection.prototype.fixMoveOverlaps = function(movingDirection){
-                _(_(_(_(selections).
-                filter( _.bind(function(s){ return s && s != this; }, this)  ))).
-                sortBy( _.bind(function(s) {return this.selection.centerPointDistance(s.selection)}, this) )).
-                each(_.bind(
-            function(otherSelection){
-                if(adjustments = this.selection.doesOverlap(otherSelection.selection)){
-                    //var movingDirection = _(_(adjustments).pairs()).sortBy(function(pair){ return pair[1]; })[0][0];
-
-                    var otherRectangles = _(_(selections).reject(_.bind(function(s){ return _(s).isNull() || s == this || s == otherSelection; }, this))).map(function(s){ return s.selection; })
-                    var superBoundingBox = this.selection.superBoundingBox(otherSelection.selection, otherRectangles, movingDirection);
-                    //console.log("sbb", superBoundingBox);
-                    var sbbAdjustments = this.selection.doesOverlap(superBoundingBox);
-                    //console.log("sbbAdjustments", sbbAdjustments)
-                    //if(!sbbAdjustments)
-                        console.log(superBoundingBox);
-
-                    //TODO: problem: if we end up moving the rectangle in a different direction than the mouse just moved,
-                    //then the sbb is in the wrong place. Can I find a way to determine which way the selection is going to be moved,
-                    // then move it based on that direction's sbb?
-                    //to replicate: | -_| move the leftmost |. When the mouse crosses the rightmost bar's midpoint, it'll 
-                    //   move to the left edge of the rightmost |, overlapping _, when it should move to the right edge of -.
-
-                    // another problem here is the loop. If this overlaps multiple rectangles, union them, maybe? Just throw out non-overlapping rectangles, sbb will get the relevant ones.
+        var otherSelections =   _(_(_(selections).
+            filter( _.bind(function(s){ return s && s != this; }, this)  ))).
+            sortBy( _.bind(function(s) {return this.oldSelection.minEdgeDistance(s.selection)}, this) ); //So: why is the wrong rectangle being chosen?
+        //TODO: the problem is that it processes the leftmost rectangle first, when itshould do the rightmost one. 
+        //It does this because the (invisible) selection infringes the left rectangle less than the right one. So, superBoundingBox gets called with the wrong selection.
+        //Need to determine their distance (correctly?) from the oldSelection.
 
 
-                    //in 2 rectangle secenario, loop through the offsets, smallest to biggest, to find one that's legal wrt the borders.
-                    for( var i=0; i<4; i++){
-                        pair = _(_(sbbAdjustments).pairs()).sortBy(function(pair){ return pair[1]; })[i];
-                        if( this.isLegal(pair[0], pair[1])){
-                            //move in the direction to closest legal spot.
-                            var min_legal_infringement_direction = pair[0];
-                            console.log("legal to move to " + min_legal_infringement_direction);
-                            var min_legal_infringement_amount = pair[1];
-                            if(min_legal_infringement_direction == "bottom"){
-                                this.selection.y1 += min_legal_infringement_amount;
-                                this.selection.y2 += min_legal_infringement_amount;
-                                // if(!/n/.test(movingDirection)){
-                                //     console.log("recursing n", movingDirection)
-                                //     this.fixMoveOverlaps('n');
-                                // }
-                                return true
-                            }else if(min_legal_infringement_direction == "top"){
-                                this.selection.y1 -= min_legal_infringement_amount;
-                                this.selection.y2 -= min_legal_infringement_amount;
-                                // if(!/s/.test(movingDirection)){
-                                //     console.log("recursing s", movingDirection)
-                                //     this.fixMoveOverlaps('s');
-                                // }
-                                return true;
-                            }else if(min_legal_infringement_direction == "left"){
-                                this.selection.x1 -= min_legal_infringement_amount;
-                                this.selection.x2 -= min_legal_infringement_amount;
-                                // if(!/w/.test(movingDirection)){
-                                //     console.log("recursing w", movingDirection)
-                                //     this.fixMoveOverlaps('w');
-                                // }
-                                return true;
-                            }else if(min_legal_infringement_direction == "right"){
-                                this.selection.x1 += min_legal_infringement_amount;
-                                this.selection.x2 += min_legal_infringement_amount;
-                                // if(!/e/.test(movingDirection)){
-                                //     console.log("recursing e", movingDirection)
-                                //     this.fixMoveOverlaps('e');
-                                // }
-                                return true;
-                            }
-                            console.log("one direction was illegal")
-                            //this.doUpdate();
-                        }else{
-                            console.log("illegal to move to "+ pair[0])
+        for(var j=0; j < otherSelections.length; j++ ){
+            var otherSelection = otherSelections[j];
+            //if(adjustments = this.selection.doesOverlap(otherSelection.selection) || true){
+                //var movingDirection = _(_(adjustments).pairs()).sortBy(function(pair){ return pair[1]; })[0][0];
+
+            var otherRectangles = _(_(selections).reject(_.bind(function(s){ return _(s).isNull() || s == this || s == otherSelection; }, this))).map(function(s){ return s.selection; })
+            var superBoundingBox = this.selection.superBoundingBox(otherSelection.selection, otherRectangles, movingDirection);
+            if( sbbAdjustments = this.selection.doesOverlap(superBoundingBox) ){
+                //console.log("sbbAdjustments", sbbAdjustments)
+                //if(!sbbAdjustments)
+                    console.log("sbb width", superBoundingBox.width);
+
+                //TODO: problem: if we end up moving the rectangle in a different direction than the mouse just moved,
+                //then the sbb is in the wrong place. Can I find a way to determine which way the selection is going to be moved,
+                // then move it based on that direction's sbb?
+                //to replicate: | -_| move the leftmost |. When the mouse crosses the rightmost bar's midpoint, it'll 
+                //   move to the left edge of the rightmost |, overlapping _, when it should move to the right edge of -.
+                // another hard use case: |_ . Draw anotehr rectangle in the crook of those two.
+                // another problem here is the loop. If this overlaps multiple rectangles, union them, maybe? Just throw out non-overlapping rectangles, sbb will get the relevant ones.
+                //loop was needed before, now it's not, as long as we properly figure out which one to use.
+
+
+                //in 2 rectangle secenario, loop through the offsets, smallest to biggest, to find one that's legal wrt the borders.
+                //console.log('sbbAdjustments', sbbAdjustments)
+                for( var i=0; i<4; i++){
+                    console.log("overlap", j)
+                    pair = _(_(sbbAdjustments).pairs()).sortBy(function(pair){ return pair[1]; })[i];
+                    if( this.isLegal(pair[0], pair[1])){
+                        //move in the direction to closest legal spot.
+                        var min_legal_infringement_direction = pair[0];
+                        //console.log("legal to move to " + min_legal_infringement_direction);
+                        var min_legal_infringement_amount = pair[1];
+                        if(min_legal_infringement_direction == "bottom"){
+                            this.selection.y1 += min_legal_infringement_amount;
+                            this.selection.y2 += min_legal_infringement_amount;
+                            // if(!/n/.test(movingDirection)){
+                            //     console.log("recursing n", movingDirection)
+                            //     this.fixMoveOverlaps('n');
+                            // }
+                            return true
+                        }else if(min_legal_infringement_direction == "top"){
+                            this.selection.y1 -= min_legal_infringement_amount;
+                            this.selection.y2 -= min_legal_infringement_amount;
+                            // if(!/s/.test(movingDirection)){
+                            //     console.log("recursing s", movingDirection)
+                            //     this.fixMoveOverlaps('s');
+                            // }
+                            return true;
+                        }else if(min_legal_infringement_direction == "left"){
+                            this.selection.x1 -= min_legal_infringement_amount;
+                            this.selection.x2 -= min_legal_infringement_amount;
+                            // if(!/w/.test(movingDirection)){
+                            //     console.log("recursing w", movingDirection)
+                            //     this.fixMoveOverlaps('w');
+                            // }
+                            return true;
+                        }else if(min_legal_infringement_direction == "right"){
+                            this.selection.x1 += min_legal_infringement_amount;
+                            this.selection.x2 += min_legal_infringement_amount;
+                            // if(!/e/.test(movingDirection)){
+                            //     console.log("recursing e", movingDirection)
+                            //     this.fixMoveOverlaps('e');
+                            // }
+                            return true;
                         }
+                        //console.log("one direction was illegal")
+                        //this.doUpdate();
+                    }else{
+                        //console.log("illegal to move to "+ pair[0])
                     }
-                    console.log("Uh oh. Couldn't find a legal place to move this!");
-                    return false; //should never happen.
                 }
-            },
-        this) );
+                console.log("Uh oh. Couldn't find a legal place to move this!");
+                return false; //should never happen.
+            }else{
+                console.log("no overlap", j);
+            }
+        }
     }
 
+    Selection.prototype.fixResizeOverlaps = function(otherSelection){
+        //assume proper orientation.
+        if(this == otherSelection){
+           console.log("comparing this selection to itself; that shouldn't happen");
+        }else{
+            if(!this.resize || this.resize.length == 2){
+                this.fixTwoAxisResizeOverlaps(otherSelection);
+            }else if(this.resize && this.resize.length == 1){
+                this.fixOneAxisResizeOverlaps(otherSelection);
+            }else{
+               //console.log("no infringement", this.resize);
+            }
+        }
+    }
+
+    Selection.prototype.fixOneAxisResizeOverlaps = function(otherSelection){
+       //console.log("fix 1 axis");
+        var infringements = this.selection.doesOverlap(otherSelection.selection);
+        console.log(infringements)
+        if (infringements){
+            if(this.resize == "n"){
+                this.y1 = otherSelection.y2;
+            }else if(this.resize == "s"){
+                this.y2 = otherSelection.y1;
+            }else if(this.resize == "w"){
+                this.x1 = otherSelection.x2;
+            }else if(this.resize == "e"){
+                this.x2 = otherSelection.x1;
+            }
+        }
+    }
+
+    Selection.prototype.fixTwoAxisResizeOverlaps = function(otherSelection){
+        var x_axis_properly_oriented = this.x2 > this.x1;
+        var y_axis_properly_oriented = this.y2 > this.y1;
+
+        /* if the non-moving point (x1, y1) is "inside" the bounds of another selection on only the x axis */
+        if( this.x1 > otherSelection.x1 && this.x1 < otherSelection.x2) {
+            if(y_axis_properly_oriented ? (this.y2 > otherSelection.y1 && this.y1 < otherSelection.y2) : (this.y2 < otherSelection.y2 && this.y1 > otherSelection.y1)){
+               console.log("disallowing overlap on y-axis");
+                // set this.y2 to the top point if the current selection is oriented upright, (i.e. such that y2 > y1), bottom otherwise.
+                this.y2 = y_axis_properly_oriented ? otherSelection.y1 : otherSelection.y2;
+            }
+        //if the non-moving point (x1, y1) is "inside" the bounds of another selection on only the y axis
+        }else if(this.y1 > otherSelection.y1 && this.y1 < otherSelection.y2){
+            if(x_axis_properly_oriented ? (this.x2 > otherSelection.x1 && this.x1 < otherSelection.x1) : (this.x2 < otherSelection.x2 && this.x1 > otherSelection.x2 )){
+               console.log("disallowing overlap on x-axis");
+                // set this.x2 to the rightmost point if the current selection is oriented correctly, (i.e. such that x2 > x1), leftmost otherwise.
+                this.x2 = x_axis_properly_oriented ? otherSelection.x1 : otherSelection.x2;
+            }
+        }else{
+            if (   //if the non-moving point (x1, y1) is not within the bounds of another selection on either axis
+                ((y_axis_properly_oriented ? (this.y2 > otherSelection.y1 && this.y1 < otherSelection.y2) : (this.y2 < otherSelection.y2 && this.y1 > otherSelection.y1)) && 
+                 (x_axis_properly_oriented ? (this.x2 > otherSelection.x1 && this.x1 < otherSelection.x1) : (this.x2 < otherSelection.x2 && this.x1 > otherSelection.x2 ))) 
+                   //or if this selection wholly contains another selection.
+              || ((x_axis_properly_oriented ? this.x1 : this.x2) <= otherSelection.x1 && (y_axis_properly_oriented ? this.y1 : this.y2) < otherSelection.y1 
+                   && (!x_axis_properly_oriented ? this.x1 : this.x2) > otherSelection.x2 && (!y_axis_properly_oriented ? this.y1 : this.y2) > otherSelection.y2)
+            ){
+               console.log("disallowing overlap on both axes");
+                //reset the "less-infringing" amount.
+                var x_infringement_distance = x_axis_properly_oriented ? this.x2 - otherSelection.x1 : otherSelection.x2 - this.x2;
+                var y_infringement_distance = y_axis_properly_oriented ? this.y2 - otherSelection.y1 : otherSelection.y2 - this.y2;
+                if(x_infringement_distance > y_infringement_distance){
+                    this.y2 = y_axis_properly_oriented ? otherSelection.y1 : otherSelection.y2;
+                }else{
+                    this.x2 = x_axis_properly_oriented ? otherSelection.x1 : otherSelection.x2;
+                }
+            }
+        }
+    }
 
     /**
      * Resize the selection area respecting the minimum/maximum dimensions and
@@ -664,35 +742,12 @@ $.imgAreaSelect = function (img, options) {
         if(!options.allowOverlaps){
             /* Restrict the dimensions of the selection based on the other selections that already exist. 
              * It's not possible for a selection to begin inside another one (except via the API, moving).
-             *
              */
-            //_(_(selections).filter(_.bind(function(otherSelection){ return otherSelection && this != otherSelection }, this))).each( _.bind( function(otherSelection){ this.fixResizeOverlaps(otherSelection) }, this) );
-
-            var overlaps = _(_(selections).filter(_.bind(function(otherSelection){ return otherSelection && this != otherSelection; }, this)))
-                .map(_.bind(function(otherSelection){ return this.selection.doesOverlap(otherSelection.selection) || this == otherSelection; }, this) );
-           //console.log(overlaps);
-            var legal = (_(overlaps).map(function(o){ return !o; }).indexOf(false) == -1) && 
-            ( this.x1 > 0 && this.x2 < left + imgWidth && //if you ask "lolwut?," I'd agree.
-             this.y1 > 0 && this.y2 < imgHeight + top );
-            
-            //console.log("legal", legal, this.x2, imgWidth);
-
-            if(legal){
-                this.selection.set({ x1: selX(min(this.x1, this.x2)), x2: selX(max(this.x1, this.x2)),
-                    y1: selY(min(this.y1, this.y2)), y2: selY(max(this.y1, this.y2)) });
-                this.selection.regenerateWidthAndHeight();
-            }else{
-                this.x2 = this.oldX2
-                this.y2 = this.oldY2;
-                this.selection.set({ x1: selX(min(this.x1, this.x2)), x2: selX(max(this.x1, this.x2)),
-                    y1: selY(min(this.y1, this.y2)), y2: selY(max(this.y1, this.y2)) });
-                this.selection.regenerateWidthAndHeight();
-            }
-        }else{
-            this.selection.set({ x1: selX(min(this.x1, this.x2)), x2: selX(max(this.x1, this.x2)),
-                y1: selY(min(this.y1, this.y2)), y2: selY(max(this.y1, this.y2)) });
-                this.selection.regenerateWidthAndHeight();
+            _(_(selections).filter(_.bind(function(otherSelection){ return otherSelection && this != otherSelection }, this))).each( _.bind( function(otherSelection){ this.fixResizeOverlaps(otherSelection) }, this) );
         }
+        this.selection.set({ x1: selX(min(this.x1, this.x2)), x2: selX(max(this.x1, this.x2)),
+            y1: selY(min(this.y1, this.y2)), y2: selY(max(this.y1, this.y2)) });
+            this.selection.regenerateWidthAndHeight();
 
         this.update();
 
@@ -745,6 +800,8 @@ $.imgAreaSelect = function (img, options) {
         }
         this.x2 = (this.x1 = newX1) + this.selection.width;
         this.y2 = (this.y1 = newY1) + this.selection.height;
+
+        this.oldSelection = this.selection.dup();
 
         this.selection.set({ x1: selX(this.x1), y1: selY(this.y1), x2: selX(this.x2),
             y2: selY(this.y2) });
@@ -879,7 +936,12 @@ $.imgAreaSelect = function (img, options) {
         $(document).unbind('mousemove.imgareaselect');
         most_recent_selection.$box.on('mousemove.imgareaselect', _.bind(most_recent_selection.areaMouseMove, most_recent_selection));
         
-        options.onSelectEnd(img, most_recent_selection.getSelection());
+        if(most_recent_selection.selection.width == 0 && most_recent_selection.selection.height == 0){
+            most_recent_selection.cancelSelection();
+            console.log("canceled a zero-size selection")
+        }else{
+            options.onSelectEnd(img, most_recent_selection.getSelection());
+        }
     }
 
 
